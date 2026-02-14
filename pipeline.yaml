@@ -1,0 +1,66 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: cd-pipeline
+spec:
+  params:
+    - name: repo-url
+      type: string
+    - name: app-name
+      type: string
+    - name: build-image
+      type: string
+
+  workspaces:
+    - name: output
+
+  tasks:
+
+    - name: cleanup
+      taskRef:
+        name: cleanup
+      workspaces:
+        - name: source
+          workspace: output
+
+    - name: clone
+      taskRef:
+        name: git-clone
+      runAfter:
+        - cleanup
+      params:
+        - name: url
+          value: $(params.repo-url)
+      workspaces:
+        - name: output
+          workspace: output
+
+    - name: eslint
+      taskRef:
+        name: eslint
+      runAfter:
+        - clone
+      workspaces:
+        - name: source
+          workspace: output
+
+    - name: jest-test
+      taskRef:
+        name: jest-test
+      runAfter:
+        - eslint
+      workspaces:
+        - name: source
+          workspace: output
+
+    - name: build
+      taskRef:
+        name: buildah
+      runAfter:
+        - jest-test
+      params:
+        - name: IMAGE
+          value: $(params.build-image)
+      workspaces:
+        - name: source
+          workspace: output
